@@ -1,105 +1,103 @@
 import { supabaseAuth, supabaseAdmin } from '../config/supabase.js';
+import { asyncHandler, HttpError } from '../lib/asyncHandler.js';
 
-export const register = async (req, res) => {
-  const { name, email, password, role, phone_number } = req.body;
+const ALLOWED_ROLES = ['community_member', 'facility_manager', 'worker', 'admin'];
 
-  if (!name || !email || !password || !role || !phone_number) {
-    return res.status(400).json({ error: 'All fields are required' });
+export const register = asyncHandler(async (req, res) => {
+  const { full_name, name, email, password, role, phone_number } = req.body;
+  const displayName = full_name || name;
+
+  if (!displayName || !email || !password || !role) {
+    throw new HttpError(400, 'full_name, email, password and role are required');
+  }
+  if (!ALLOWED_ROLES.includes(role)) {
+    throw new HttpError(400, `role must be one of ${ALLOWED_ROLES.join(', ')}`);
   }
 
-  try {
-    // 1. Sign up with Supabase Auth
-    const { data: authData, error: authError } = await supabaseAuth.auth.signUp({
+  // 1. Create the auth user
+  const { data: authData, error: authError } = await supabaseAuth.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: displayName, role } },
+  });
+  if (authError) throw new HttpError(400, authError.message);
+
+  const userId = authData.user.id;
+
+  // 2. Mirror profile into public.users. Roll back the auth user if this fails.
+  const { error: profileError } = await supabaseAdmin
+    .from('users')
+    .insert({
+      id: userId,
+      full_name: displayName,
       email,
-      password,
-      options: {
-        data: { name, role, phone_number }
-      }
+      phone_number: phone_number ?? null,
+      role,
     });
 
-    if (authError) throw authError;
-
-    const userId = authData.user.id;
-
-    // 2. Insert into role-specific table
-    let table = '';
-    if (role === 'community_member') table = 'community_members';
-    else if (role === 'facility_manager') table = 'facility_managers';
-    else if (role === 'worker') table = 'workers';
-    else throw new Error('Invalid role');
-
-    const { error: profileError } = await supabaseAdmin
-      .from(table)
-      .insert({
-        user_id: userId,
-        name,
-        email,
-        phone_number,
-      });
-
-    if (profileError) {
-      // In a real app, you might want to delete the auth user if profile creation fails
-      throw profileError;
-    }
-
-    res.status(201).json({
-      message: 'User registered successfully',
-      user: authData.user,
-      session: authData.session
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(400).json({ error: error.message });
+  if (profileError) {
+    await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => {});
+    throw new HttpError(400, profileError.message);
   }
-};
 
-export const login = async (req, res) => {
+  res.status(201).json({
+    message: 'User registered successfully',
+    user: {
+      id: userId,
+      full_name: displayName,
+      email,
+      role,
+    },
+    session: authData.session,
+  });
+});
+
+export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
+  if (!email || !password) throw new HttpError(400, 'email and password are required');
 
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
-  }
+  const { data, error } = await supabaseAuth.auth.signInWithPassword({ email, password });
+  if (error) throw new HttpError(401, error.message);
 
-  try {
-    const { data, error } = await supabaseAuth.auth.signInWithPassword({
-      email,
-      password,
-    });
+  // Pull the authoritative profile so the mobile app gets the right role.
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('users')
+    .select('id, full_name, email, role, status')
+    .eq('id', data.user.id)
+    .single();
 
-    if (error) return res.status(401).json({ error: error.message });
+  if (profileError || !profile) throw new HttpError(401, 'User profile not found');
+  if (profile.status !== 'active') throw new HttpError(403, 'Account is inactive');
 
-    res.status(200).json({
-      token: data.session.access_token,
-      user: {
-        id: data.user.id,
-        name: data.user.user_metadata.name,
-        role: data.user.user_metadata.role,
-        phone_number: data.user.user_metadata.phone_number
-      }
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
+  res.status(200).json({
+    token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+    user: {
+      id: profile.id,
+      full_name: profile.full_name,
+      email: profile.email,
+      role: profile.role,
+    },
+  });
+});
 
-export const forgotPassword = async (req, res) => {
+export const logout = asyncHandler(async (req, res) => {
+  // Invalidate all refresh tokens for this user.
+  await supabaseAdmin.auth.admin.signOut(req.user.id).catch(() => {});
+  res.status(204).end();
+});
+
+export const me = asyncHandler(async (req, res) => {
+  res.status(200).json({ user: req.user });
+});
+
+export const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ error: 'Email is required' });
+  if (!email) throw new HttpError(400, 'email is required');
 
-  try {
-    const { error } = await supabaseAuth.auth.resetPasswordForEmail(email);
-    if (error) throw error;
+  const { error } = await supabaseAuth.auth.resetPasswordForEmail(email);
+  if (error) throw new HttpError(400, error.message);
+  res.status(200).json({ message: 'Reset link sent successfully' });
+});
 
-    res.status(200).json({ message: 'Reset link sent successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(400).json({ error: error.message });
-  }
-};
-
-export default {
-  register,
-  login, 
-  forgotPassword,
-};
+export default { register, login, logout, me, forgotPassword };

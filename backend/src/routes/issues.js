@@ -12,11 +12,19 @@ const upload = multer({
 
 router.use(requireAuth);
 
-router.post('/', rbac(['community_member']), upload.single('photo'), issueController.createIssue);
-router.get('/', rbac(['facility_manager', 'admin']), issueController.getAllIssues);
-router.get('/my', rbac(['community_member']), issueController.getMyIssues);
-router.get('/:id', issueController.getIssueById);
-router.put('/:id/status', rbac(['facility_manager', 'worker']), issueController.updateStatus);
-router.put('/:id/assign', rbac(['facility_manager']), issueController.assignIssue);
+router.post('/',          rbac(['community_member']),                upload.single('photo'), issueController.createIssue);
+router.get('/',           rbac(['facility_manager', 'admin']),       issueController.getAllIssues);
+router.get('/my',         rbac(['community_member']),                issueController.getMyIssues);
+router.get('/assigned',   rbac(['worker']),                          issueController.getAssignedIssues);
+router.get('/:id',                                                  issueController.getIssueById);
+
+router.put('/:id/status', rbac(['facility_manager', 'worker']),      issueController.updateStatus);
+router.put('/:id/assign', rbac(['facility_manager']),                issueController.assignIssue);
+router.put('/:id/close',  rbac(['facility_manager']),                issueController.closeIssue);
+
+router.post('/:id/comments', rbac(['facility_manager', 'worker']),   issueController.addComment);
+router.post('/:id/photo',    rbac(['worker']), upload.single('photo'), issueController.uploadCompletionPhoto);
+
+router.delete('/:id', rbac(['facility_manager']), issueController.deleteIssue);
 
 export default router;

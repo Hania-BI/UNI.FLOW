@@ -1,337 +1,166 @@
--- Initial migration for UNIFLOW
 -- =========================================================
--- FACILITY MANAGEMENT SYSTEM - SUPABASE FULL SCHEMA
--- Paste EVERYTHING into Supabase SQL Editor and Run Once
+-- CampusCare / UniFlow — initial schema
+-- Target: Supabase (PostgreSQL 15+)
+-- Run once in the Supabase SQL Editor.
+--
+-- Design notes:
+--   * One `users` table mirrors `auth.users.id` and holds role + status.
+--     Backend RBAC reads role from this table (authoritative), not from
+--     JWT user_metadata.
+--   * `issues.status` is the current state; `issue_status_log` is the
+--     append-only history. No circular FK between them.
+--   * RLS is enabled with permissive policies; authorization is enforced
+--     in the Express layer (service key bypasses RLS anyway).
 -- =========================================================
 
--- =========================================================
--- 1. ENUM TYPES
--- =========================================================
+-- ---------- Extensions ----------
+create extension if not exists pgcrypto;
 
-create type ticket_category as enum (
-  'Maintenance',
-  'Cleanliness',
-  'Infrastructure'
+-- ---------- Enums ----------
+do $$ begin
+  create type user_role as enum (
+    'community_member', 'facility_manager', 'worker', 'admin'
+  );
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type user_status as enum ('active', 'inactive');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type issue_category as enum (
+    'electrical', 'plumbing', 'cleaning', 'furniture', 'other'
+  );
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type issue_status as enum (
+    'pending', 'assigned', 'in_progress', 'resolved', 'closed'
+  );
+exception when duplicate_object then null; end $$;
+
+-- =========================================================
+-- 1. USERS (profile mirror of auth.users)
+-- =========================================================
+create table if not exists public.users (
+  id              uuid primary key
+                  references auth.users(id) on delete cascade,
+  full_name       varchar(255) not null,
+  email           varchar(255) unique not null,
+  phone_number    varchar(20),
+  role            user_role    not null,
+  status          user_status  not null default 'active',
+  created_at      timestamptz  not null default now()
 );
 
-create type ticket_priority as enum (
-  'Low',
-  'Medium',
-  'High'
-);
+create index if not exists users_role_idx   on public.users(role);
+create index if not exists users_status_idx on public.users(status);
 
-create type worker_account_status as enum (
-  'Active',
-  'Suspended',
-  'Pending'
-);
-
-create type location_area_type as enum (
-  'Classroom',
-  'Office',
-  'Outdoor',
-  'Lab'
+-- =========================================================
+-- 2. LOCATIONS
+-- =========================================================
+create table if not exists public.locations (
+  id         uuid primary key default gen_random_uuid(),
+  building   varchar(255) not null,
+  floor      varchar(50)  not null,
+  room       varchar(50)  not null,
+  created_at timestamptz  not null default now(),
+  unique (building, floor, room)
 );
 
 -- =========================================================
--- 2. COMMUNITY MEMBERS TABLE
+-- 3. ISSUES
 -- =========================================================
+create table if not exists public.issues (
+  id                   uuid primary key default gen_random_uuid(),
+  title                varchar(255) not null,
+  description          text         not null,
+  category             issue_category not null,
+  status               issue_status   not null default 'pending',
 
-create table public.community_members (
-  user_id uuid primary key default gen_random_uuid(),
+  photo_url            text,
+  completion_photo_url text,
 
-  full_name varchar(255) not null,
+  location_id   uuid not null
+                references public.locations(id) on delete restrict,
+  submitted_by  uuid not null
+                references public.users(id) on delete cascade,
+  assigned_to   uuid
+                references public.users(id) on delete set null,
 
-  email varchar(255) unique not null,
+  created_at    timestamptz not null default now(),
+  resolved_at   timestamptz,
+  closed_at     timestamptz
+);
 
-  password_hash varchar(255) not null,
+create index if not exists issues_submitted_by_idx on public.issues(submitted_by);
+create index if not exists issues_assigned_to_idx  on public.issues(assigned_to);
+create index if not exists issues_status_idx       on public.issues(status);
+create index if not exists issues_category_idx     on public.issues(category);
+create index if not exists issues_created_at_idx   on public.issues(created_at desc);
 
-  phone_number varchar(20),
-
+-- =========================================================
+-- 4. ISSUE COMMENTS
+-- =========================================================
+create table if not exists public.issue_comments (
+  id         uuid primary key default gen_random_uuid(),
+  issue_id   uuid not null
+             references public.issues(id) on delete cascade,
+  author_id  uuid not null
+             references public.users(id) on delete cascade,
+  body       text not null check (length(trim(body)) > 0),
   created_at timestamptz not null default now()
 );
 
+create index if not exists issue_comments_issue_idx on public.issue_comments(issue_id);
+
 -- =========================================================
--- 3. WORKERS TABLE
+-- 5. ISSUE STATUS LOG (append-only history)
 -- =========================================================
-
-create table public.workers (
-  worker_id uuid primary key default gen_random_uuid(),
-
-  full_name varchar(255) not null,
-
-  email varchar(255) unique not null,
-
-  password_hash varchar(255) not null,
-
-  phone_number varchar(20),
-
-  department varchar(100),
-
-  account_status worker_account_status
-  not null
-  default 'Pending',
-
-  suspended_at timestamptz,
-
-  created_at timestamptz not null default now()
+create table if not exists public.issue_status_log (
+  id          uuid primary key default gen_random_uuid(),
+  issue_id    uuid not null
+              references public.issues(id) on delete cascade,
+  from_status issue_status,
+  to_status   issue_status not null,
+  changed_by  uuid not null
+              references public.users(id) on delete cascade,
+  note        text,
+  changed_at  timestamptz not null default now()
 );
 
--- =========================================================
--- 4. FACILITY MANAGERS TABLE
--- =========================================================
-
-create table public.facility_managers (
-  manager_id uuid primary key default gen_random_uuid(),
-
-  full_name varchar(255) not null,
-
-  email varchar(255) unique not null,
-
-  password_hash varchar(255) not null,
-
-  last_login timestamptz,
-
-  created_at timestamptz not null default now()
-);
+create index if not exists issue_status_log_issue_idx
+  on public.issue_status_log(issue_id, changed_at desc);
 
 -- =========================================================
--- 5. LOCATIONS TABLE
+-- 6. ROW LEVEL SECURITY
+-- Enable RLS on everything; permissive policies so the service role
+-- works without surprises. Tighten in a later migration once the
+-- backend stops being the sole writer.
 -- =========================================================
-
-create table public.locations (
-  location_id uuid primary key default gen_random_uuid(),
-
-  building_name varchar(255) not null,
-
-  description text,
-
-  floor varchar(50),
-
-  area_type location_area_type not null,
-
-  room_number varchar(50)
-);
-
--- =========================================================
--- 6. TICKETS TABLE
--- =========================================================
-
-create table public.tickets (
-  ticket_id uuid primary key default gen_random_uuid(),
-
-  title varchar(255) not null,
-
-  description text,
-
-  category ticket_category not null,
-
-  priority ticket_priority
-  not null
-  default 'Medium',
-
-  created_at timestamptz not null default now(),
-
-  resolved_at timestamptz,
-
-  created_by uuid not null
-  references public.community_members(user_id)
-  on delete cascade,
-
-  assigned_worker_id uuid
-  references public.workers(worker_id)
-  on delete set null,
-
-  location_id uuid not null
-  references public.locations(location_id)
-  on delete cascade,
-
-  status_id uuid
-);
-
--- =========================================================
--- 7. TICKET STATUS LOG TABLE
--- =========================================================
-
-create table public.ticket_status_log (
-  log_id uuid primary key default gen_random_uuid(),
-
-  ticket_id uuid not null
-  references public.tickets(ticket_id)
-  on delete cascade,
-
-  status_name varchar(100) not null,
-
-  updated_by_worker_id uuid
-  references public.workers(worker_id)
-  on delete set null,
-
-  updated_by_manager_id uuid
-  references public.facility_managers(manager_id)
-  on delete set null,
-
-  updated_at timestamptz not null default now(),
-
-  comment text
-);
-
--- =========================================================
--- 8. FOREIGN KEY FOR CURRENT STATUS
--- =========================================================
-
-alter table public.tickets
-add constraint fk_ticket_latest_status
-foreign key (status_id)
-references public.ticket_status_log(log_id)
-on delete set null;
-
--- =========================================================
--- 9. INDEXES
--- =========================================================
-
-create index tickets_created_by_idx
-on public.tickets(created_by);
-
-create index tickets_assigned_worker_idx
-on public.tickets(assigned_worker_id);
-
-create index tickets_location_idx
-on public.tickets(location_id);
-
-create index ticket_status_log_ticket_idx
-on public.ticket_status_log(ticket_id);
-
-create index community_members_email_idx
-on public.community_members(email);
-
-create index workers_email_idx
-on public.workers(email);
-
-create index managers_email_idx
-on public.facility_managers(email);
-
--- =========================================================
--- 10. ENABLE ROW LEVEL SECURITY
--- =========================================================
-
-alter table public.community_members enable row level security;
-
-alter table public.workers enable row level security;
-
-alter table public.facility_managers enable row level security;
-
-alter table public.locations enable row level security;
-
-alter table public.tickets enable row level security;
-
-alter table public.ticket_status_log enable row level security;
-
--- =========================================================
--- 11. COMMUNITY MEMBER POLICIES
--- =========================================================
-
-create policy "community members can view own profile"
-on public.community_members
-for select
-using (auth.uid() = user_id);
-
-create policy "community members can update own profile"
-on public.community_members
-for update
-using (auth.uid() = user_id);
-
--- =========================================================
--- 12. TICKET POLICIES
--- =========================================================
-
-create policy "community members create tickets"
-on public.tickets
-for insert
-with check (auth.uid() = created_by);
-
-create policy "community members view own tickets"
-on public.tickets
-for select
-using (auth.uid() = created_by);
-
-create policy "workers view assigned tickets"
-on public.tickets
-for select
-using (auth.uid() = assigned_worker_id);
-
-create policy "workers update assigned tickets"
-on public.tickets
-for update
-using (auth.uid() = assigned_worker_id);
-
-create policy "managers full access to tickets"
-on public.tickets
-for all
-using (true)
-with check (true);
-
--- =========================================================
--- 13. TICKET STATUS LOG POLICIES
--- =========================================================
-
-create policy "workers can insert status logs"
-on public.ticket_status_log
-for insert
-with check (true);
-
-create policy "workers view status logs"
-on public.ticket_status_log
-for select
-using (true);
-
-create policy "managers full access to status logs"
-on public.ticket_status_log
-for all
-using (true)
-with check (true);
-
--- =========================================================
--- 14. LOCATION POLICIES
--- =========================================================
-
-create policy "all authenticated users can view locations"
-on public.locations
-for select
-using (auth.role() = 'authenticated');
-
-create policy "managers manage locations"
-on public.locations
-for all
-using (true)
-with check (true);
-
--- =========================================================
--- 15. WORKER POLICIES
--- =========================================================
-
-create policy "workers view own profile"
-on public.workers
-for select
-using (auth.uid() = worker_id);
-
-create policy "workers update own profile"
-on public.workers
-for update
-using (auth.uid() = worker_id);
-
--- =========================================================
--- 16. MANAGER POLICIES
--- =========================================================
-
-create policy "managers view own profile"
-on public.facility_managers
-for select
-using (auth.uid() = manager_id);
-
-create policy "managers update own profile"
-on public.facility_managers
-for update
-using (auth.uid() = manager_id);
+alter table public.users            enable row level security;
+alter table public.locations        enable row level security;
+alter table public.issues           enable row level security;
+alter table public.issue_comments   enable row level security;
+alter table public.issue_status_log enable row level security;
+
+do $$
+declare t text;
+begin
+  for t in
+    select unnest(array[
+      'users','locations','issues','issue_comments','issue_status_log'
+    ])
+  loop
+    execute format(
+      'drop policy if exists "%1$s service all" on public.%1$s', t
+    );
+    execute format(
+      'create policy "%1$s service all" on public.%1$s
+         for all using (true) with check (true)', t
+    );
+  end loop;
+end $$;
 
 -- =========================================================
 -- DONE

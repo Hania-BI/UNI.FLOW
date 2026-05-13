@@ -4,6 +4,8 @@ import cors from 'cors';
 
 import authRoutes from './routes/auth.js';
 import issueRoutes from './routes/issues.js';
+import managerRoutes from './routes/manager.js';
+import adminRoutes from './routes/admin.js';
 
 
 
@@ -26,11 +28,18 @@ app.get('/health', (_req, res) => res.json({ status: 'UP', service: 'CampusCare 
 
 app.use('/api/auth', authRoutes);
 app.use('/api/issues', issueRoutes);
+app.use('/api/manager', managerRoutes);
+app.use('/api/admin', adminRoutes);
 
-// Centralised error handler middleware
+app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
+
 app.use((err, _req, res, _next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+  const status = err.status || 500;
+  if (status >= 500) console.error(err);
+  res.status(status).json({
+    error: err.message || 'Internal server error',
+    ...(err.details ? { details: err.details } : {}),
+  });
 });
 
 const PORT = process.env.PORT || 3000;
