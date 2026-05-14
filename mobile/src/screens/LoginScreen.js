@@ -1,40 +1,53 @@
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
-  StatusBar,
+  View, Text, TextInput, Pressable, StyleSheet,
+  ActivityIndicator, KeyboardAvoidingView, Platform,
+  TouchableWithoutFeedback, Keyboard, Animated, StatusBar,
 } from 'react-native';
-
 import { useAuth } from '../auth/AuthContext';
-import { COLORS, SPACING, RADIUS } from '../theme';
+
+const T = {
+  bg: '#F8F9FF', primary: '#4F46E5', primaryDark: '#3730A3',
+  primaryLight: '#EEF2FF', surface: '#FFFFFF',
+  text: '#0F172A', textSub: '#475569', textMuted: '#94A3B8',
+  border: '#E2E8F0', borderFocus: '#4F46E5',
+  error: '#EF4444', errorLight: '#FEF2F2',
+};
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail]           = useState('');
+  const [password, setPassword]     = useState('');
+  const [showPass, setShowPass]     = useState(false);
+  const [focused, setFocused]       = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [inlineError, setInlineError] = useState('');
+
   const passwordRef = useRef();
+  const btnScale    = useRef(new Animated.Value(1)).current;
+
+  // Entrance animation
+  const slideY  = useRef(new Animated.Value(40)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(slideY,  { toValue: 0, duration: 450, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 450, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  function pressIn()  { Animated.spring(btnScale, { toValue: 0.96, useNativeDriver: true }).start(); }
+  function pressOut() { Animated.spring(btnScale, { toValue: 1,    useNativeDriver: true }).start(); }
 
   async function handleLogin() {
-    if (!email || !password) {
-      Alert.alert('Missing info', 'Please enter email and password.');
-      return;
-    }
+    setInlineError('');
+    if (!email.trim()) { setInlineError('Email is required.'); return; }
+    if (!password)     { setInlineError('Password is required.'); return; }
     try {
       setSubmitting(true);
       await login(email.trim(), password);
     } catch (err) {
-      Alert.alert('Login failed', err.message);
+      setInlineError(err.message);
     } finally {
       setSubmitting(false);
     }
@@ -42,179 +55,180 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <StatusBar barStyle="light-content" backgroundColor={T.primary} />
 
-        {/* Blue hero area */}
+        {/* Hero */}
         <View style={styles.hero}>
           <View style={styles.logoCircle}>
             <Text style={styles.logoIcon}>🏛️</Text>
           </View>
-          <Text style={styles.appName}>CampusCare</Text>
-          <Text style={styles.appTagline}>Smart Facility Management</Text>
+          <Text style={styles.heroTitle}>CampusCare</Text>
+          <Text style={styles.heroSub}>Smart Facility Management</Text>
         </View>
 
-        {/* Card form */}
-        <View style={styles.card}>
+        {/* Card */}
+        <Animated.View style={[styles.card, { transform: [{ translateY: slideY }], opacity }]}>
           <Text style={styles.cardTitle}>Welcome back</Text>
-          <Text style={styles.cardSubtitle}>Sign in to your account</Text>
+          <Text style={styles.cardSub}>Sign in to your account to continue</Text>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address</Text>
-            <View style={styles.inputWrapper}>
+          {/* Inline error */}
+          {!!inlineError && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorBoxIcon}>⚠️</Text>
+              <Text style={styles.errorBoxText}>{inlineError}</Text>
+            </View>
+          )}
+
+          {/* Email */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Email address</Text>
+            <View style={[styles.inputWrap, focused === 'email' && styles.inputWrapFocus]}>
               <Text style={styles.inputIcon}>✉️</Text>
               <TextInput
                 style={styles.input}
-                placeholder="name@university.edu"
-                placeholderTextColor={COLORS.textSecondary}
+                placeholder="you@university.edu"
+                placeholderTextColor={T.textMuted}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(v) => { setEmail(v); setInlineError(''); }}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 returnKeyType="next"
-                onSubmitEditing={() => passwordRef.current.focus()}
+                onFocus={() => setFocused('email')}
+                onBlur={() => setFocused(null)}
+                onSubmitEditing={() => passwordRef.current?.focus()}
                 blurOnSubmit={false}
               />
             </View>
           </View>
 
-          <View style={styles.inputGroup}>
+          {/* Password */}
+          <View style={styles.fieldGroup}>
             <View style={styles.labelRow}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={styles.fieldLabel}>Password</Text>
               <Pressable onPress={() => navigation.navigate('ForgotPassword')}>
-                <Text style={styles.forgotText}>Forgot password?</Text>
+                <Text style={styles.forgotLink}>Forgot password?</Text>
               </Pressable>
             </View>
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrap, focused === 'password' && styles.inputWrapFocus]}>
               <Text style={styles.inputIcon}>🔒</Text>
               <TextInput
                 ref={passwordRef}
                 style={styles.input}
                 placeholder="Your password"
-                placeholderTextColor={COLORS.textSecondary}
+                placeholderTextColor={T.textMuted}
                 value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
+                onChangeText={(v) => { setPassword(v); setInlineError(''); }}
+                secureTextEntry={!showPass}
                 returnKeyType="go"
+                onFocus={() => setFocused('password')}
+                onBlur={() => setFocused(null)}
                 onSubmitEditing={handleLogin}
               />
-              <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
+              <Pressable onPress={() => setShowPass(!showPass)} hitSlop={8}>
+                <Text style={styles.eyeIcon}>{showPass ? '🙈' : '👁️'}</Text>
               </Pressable>
             </View>
           </View>
 
-          <Pressable
-            onPress={handleLogin}
-            disabled={submitting}
-            style={[styles.primaryButton, submitting && styles.disabled]}
-          >
-            {submitting
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.primaryButtonText}>Sign In</Text>}
-          </Pressable>
+          {/* Submit */}
+          <Animated.View style={{ transform: [{ scale: btnScale }] }}>
+            <Pressable
+              onPress={handleLogin}
+              onPressIn={pressIn}
+              onPressOut={pressOut}
+              disabled={submitting}
+              style={[styles.primaryBtn, submitting && styles.btnDisabled]}
+            >
+              {submitting
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.primaryBtnText}>Sign In  →</Text>}
+            </Pressable>
+          </Animated.View>
 
+          {/* Divider */}
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>or</Text>
             <View style={styles.dividerLine} />
           </View>
 
-          <Pressable onPress={() => navigation.navigate('Signup')} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Create an Account</Text>
+          {/* Sign up */}
+          <Pressable onPress={() => navigation.navigate('Signup')} style={styles.outlineBtn}>
+            <Text style={styles.outlineBtnText}>Create an Account</Text>
           </Pressable>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.primary },
+  container: { flex: 1, backgroundColor: T.primary },
 
-  hero: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: SPACING.xl,
-  },
+  hero: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 16 },
   logoCircle: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 84, height: 84, borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: 16, borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
-  logoIcon: { fontSize: 40 },
-  appName: { fontSize: 32, fontWeight: 'bold', color: '#fff', letterSpacing: 0.5 },
-  appTagline: { fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
+  logoIcon:  { fontSize: 42 },
+  heroTitle: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
+  heroSub:   { fontSize: 14, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
 
   card: {
-    backgroundColor: COLORS.background,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: SPACING.xl,
-    paddingBottom: 40,
+    backgroundColor: T.bg,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingHorizontal: 28, paddingTop: 28, paddingBottom: 36,
   },
-  cardTitle: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, marginBottom: 4 },
-  cardSubtitle: { fontSize: 14, color: COLORS.textSecondary, marginBottom: SPACING.xl },
+  cardTitle: { fontSize: 22, fontWeight: '800', color: T.text, marginBottom: 4 },
+  cardSub:   { fontSize: 14, color: T.textSub, marginBottom: 20 },
 
-  inputGroup: { marginBottom: SPACING.md },
-  label: { fontSize: 13, fontWeight: '600', color: COLORS.text, marginBottom: 6 },
-  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  forgotText: { fontSize: 13, color: COLORS.primary, fontWeight: '600' },
+  errorBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: T.errorLight, borderRadius: 10, borderWidth: 1,
+    borderColor: '#FECACA', padding: 12, marginBottom: 16,
+  },
+  errorBoxIcon: { fontSize: 14, marginTop: 1 },
+  errorBoxText: { flex: 1, fontSize: 13, color: T.error, lineHeight: 18 },
 
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: SPACING.md,
-  },
-  inputIcon: { fontSize: 16, marginRight: SPACING.sm },
-  input: {
-    flex: 1,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: COLORS.text,
-  },
-  eyeBtn: { padding: 4 },
-  eyeIcon: { fontSize: 16 },
+  fieldGroup: { marginBottom: 16 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: T.text, marginBottom: 7 },
+  labelRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 },
+  forgotLink: { fontSize: 13, color: T.primary, fontWeight: '600' },
 
-  primaryButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 16,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    marginTop: SPACING.sm,
-    elevation: 3,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: T.surface, borderRadius: 12,
+    borderWidth: 1.5, borderColor: T.border,
+    paddingHorizontal: 14,
   },
-  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  disabled: { opacity: 0.6 },
+  inputWrapFocus: { borderColor: T.borderFocus, backgroundColor: '#FAFBFF' },
+  inputIcon:  { fontSize: 16, marginRight: 10 },
+  input:      { flex: 1, paddingVertical: 14, fontSize: 15, color: T.text },
+  eyeIcon:    { fontSize: 16, padding: 4 },
+
+  primaryBtn: {
+    backgroundColor: T.primary, paddingVertical: 16,
+    borderRadius: 14, alignItems: 'center', marginTop: 4,
+    shadowColor: T.primary, shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
+  },
+  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+  btnDisabled:    { opacity: 0.65 },
 
   divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: SPACING.lg,
-    gap: SPACING.sm,
+    flexDirection: 'row', alignItems: 'center',
+    marginVertical: 20, gap: 10,
   },
-  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
-  dividerText: { color: COLORS.textSecondary, fontSize: 13 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: T.border },
+  dividerText: { fontSize: 13, color: T.textMuted },
 
-  secondaryButton: {
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
+  outlineBtn: {
+    borderWidth: 1.5, borderColor: T.primary,
+    paddingVertical: 14, borderRadius: 14, alignItems: 'center',
   },
-  secondaryButtonText: { color: COLORS.primary, fontSize: 15, fontWeight: '700' },
+  outlineBtnText: { color: T.primary, fontSize: 15, fontWeight: '700' },
 });

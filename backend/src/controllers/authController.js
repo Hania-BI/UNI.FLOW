@@ -111,9 +111,36 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
   if (!email) throw new HttpError(400, 'email is required');
 
-  const { error } = await supabaseAuth.auth.resetPasswordForEmail(email);
-  if (error) throw new HttpError(400, error.message);
-  res.status(200).json({ message: 'Reset link sent successfully' });
+  const { data, error } = await supabaseAdmin
+    .from('users')
+    .select('id, email')
+    .eq('email', email.toLowerCase().trim())
+    .maybeSingle();
+
+  if (error) throw new HttpError(500, error.message);
+  if (!data) throw new HttpError(404, 'No account found with this email address.');
+
+  res.json({ message: 'Email verified', email: data.email });
 });
 
-export default { register, login, logout, me, forgotPassword };
+export const resetPassword = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) throw new HttpError(400, 'email and password are required');
+  if (password.length < 8) throw new HttpError(400, 'Password must be at least 8 characters');
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('users')
+    .select('id')
+    .eq('email', email.toLowerCase().trim())
+    .maybeSingle();
+
+  if (profileError || !profile) throw new HttpError(404, 'Account not found');
+
+  // Supabase Auth handles hashing — do NOT hash manually
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(profile.id, { password });
+  if (error) throw new HttpError(400, error.message);
+
+  res.json({ message: 'Password updated successfully' });
+});
+
+export default { register, login, logout, me, forgotPassword, resetPassword };
