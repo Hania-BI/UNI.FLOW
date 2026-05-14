@@ -11,6 +11,7 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  StatusBar,
 } from 'react-native';
 
 import { useAuth } from '../auth/AuthContext';
@@ -18,11 +19,10 @@ import { COLORS, SPACING, RADIUS } from '../theme';
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
   const passwordRef = useRef();
 
   async function handleLogin() {
@@ -32,11 +32,8 @@ export default function LoginScreen({ navigation }) {
     }
     try {
       setSubmitting(true);
-      console.log('[LoginScreen] submitting login for:', email.trim());
       await login(email.trim(), password);
-      console.log('[LoginScreen] login complete — navigation will update automatically');
     } catch (err) {
-      console.error('[LoginScreen] login error:', err.message);
       Alert.alert('Login failed', err.message);
     } finally {
       setSubmitting(false);
@@ -49,60 +46,86 @@ export default function LoginScreen({ navigation }) {
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.inner}>
-          <View style={styles.header}>
-            <Text style={styles.title}>CampusCare</Text>
-            <Text style={styles.subtitle}>Smart Facility Management System</Text>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+
+        {/* Blue hero area */}
+        <View style={styles.hero}>
+          <View style={styles.logoCircle}>
+            <Text style={styles.logoIcon}>🏛️</Text>
+          </View>
+          <Text style={styles.appName}>CampusCare</Text>
+          <Text style={styles.appTagline}>Smart Facility Management</Text>
+        </View>
+
+        {/* Card form */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Welcome back</Text>
+          <Text style={styles.cardSubtitle}>Sign in to your account</Text>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email Address</Text>
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputIcon}>✉️</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="name@university.edu"
+                placeholderTextColor={COLORS.textSecondary}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current.focus()}
+                blurOnSubmit={false}
+              />
+            </View>
           </View>
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="name@giu.edu"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              returnKeyType="next"
-              onSubmitEditing={() => passwordRef.current.focus()}
-              blurOnSubmit={false}
-            />
-
+          <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.label}>Password</Text>
               <Pressable onPress={() => navigation.navigate('ForgotPassword')}>
-                <Text style={styles.forgotText}>Forgot?</Text>
+                <Text style={styles.forgotText}>Forgot password?</Text>
               </Pressable>
             </View>
-            <TextInput
-              ref={passwordRef}
-              style={styles.input}
-              placeholder="Your password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              returnKeyType="go"
-              onSubmitEditing={handleLogin}
-            />
-
-            <Pressable
-              onPress={handleLogin}
-              disabled={submitting}
-              style={[styles.primaryButton, submitting && styles.disabled]}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Log in</Text>
-              )}
-            </Pressable>
-
-            <Pressable onPress={() => navigation.navigate('Signup')} style={styles.linkRow}>
-              <Text style={styles.linkMuted}>Don't have an account? </Text>
-              <Text style={styles.link}>Sign up</Text>
-            </Pressable>
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputIcon}>🔒</Text>
+              <TextInput
+                ref={passwordRef}
+                style={styles.input}
+                placeholder="Your password"
+                placeholderTextColor={COLORS.textSecondary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                returnKeyType="go"
+                onSubmitEditing={handleLogin}
+              />
+              <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
+                <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
+              </Pressable>
+            </View>
           </View>
+
+          <Pressable
+            onPress={handleLogin}
+            disabled={submitting}
+            style={[styles.primaryButton, submitting && styles.disabled]}
+          >
+            {submitting
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={styles.primaryButtonText}>Sign In</Text>}
+          </Pressable>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <Pressable onPress={() => navigation.navigate('Signup')} style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Create an Account</Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
@@ -110,41 +133,88 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  inner: { flex: 1, padding: SPACING.xl, justifyContent: 'center' },
-  header: { marginBottom: SPACING.xl },
-  title: { fontSize: 36, fontWeight: 'bold', color: COLORS.primary, marginBottom: 4 },
-  subtitle: { fontSize: 16, color: COLORS.textSecondary },
-  form: { marginTop: SPACING.lg },
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: SPACING.xs, marginLeft: 4 },
-  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  forgotText: { fontSize: 14, color: COLORS.primary, fontWeight: '600' },
-  input: {
-    borderWidth: 1,
+  container: { flex: 1, backgroundColor: COLORS.primary },
+
+  hero: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: SPACING.xl,
+  },
+  logoCircle: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: SPACING.md,
+  },
+  logoIcon: { fontSize: 40 },
+  appName: { fontSize: 32, fontWeight: 'bold', color: '#fff', letterSpacing: 0.5 },
+  appTagline: { fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
+
+  card: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: SPACING.xl,
+    paddingBottom: 40,
+  },
+  cardTitle: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, marginBottom: 4 },
+  cardSubtitle: { fontSize: 14, color: COLORS.textSecondary, marginBottom: SPACING.xl },
+
+  inputGroup: { marginBottom: SPACING.md },
+  label: { fontSize: 13, fontWeight: '600', color: COLORS.text, marginBottom: 6 },
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  forgotText: { fontSize: 13, color: COLORS.primary, fontWeight: '600' },
+
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
     borderColor: COLORS.border,
     borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: COLORS.text,
-    marginBottom: SPACING.md,
     backgroundColor: COLORS.surface,
+    paddingHorizontal: SPACING.md,
   },
+  inputIcon: { fontSize: 16, marginRight: SPACING.sm },
+  input: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: COLORS.text,
+  },
+  eyeBtn: { padding: 4 },
+  eyeIcon: { fontSize: 16 },
+
   primaryButton: {
     backgroundColor: COLORS.primary,
-    paddingVertical: 15,
+    paddingVertical: 16,
     borderRadius: RADIUS.md,
     alignItems: 'center',
-    marginTop: SPACING.md,
+    marginTop: SPACING.sm,
+    elevation: 3,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 4,
   },
-  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   disabled: { opacity: 0.6 },
-  linkRow: { flexDirection: 'row', justifyContent: 'center', marginTop: SPACING.xl },
-  linkMuted: { color: COLORS.textSecondary },
-  link: { color: COLORS.primary, fontWeight: '600' },
+
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
+  dividerText: { color: COLORS.textSecondary, fontSize: 13 },
+
+  secondaryButton: {
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+  },
+  secondaryButtonText: { color: COLORS.primary, fontSize: 15, fontWeight: '700' },
 });

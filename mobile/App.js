@@ -15,6 +15,8 @@ import HomeScreen from './src/screens/HomeScreen';
 import CreateIssueScreen from './src/screens/CreateIssueScreen';
 import IssueDetailScreen from './src/screens/IssueDetailScreen';
 import AssignedIssuesScreen from './src/screens/AssignedIssuesScreen';
+import FMDashboardScreen from './src/screens/FMDashboardScreen';
+import WorkersScreen from './src/screens/WorkersScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -31,8 +33,8 @@ function CMTabs() {
 function FMTabs() {
   return (
     <Tab.Navigator screenOptions={{ tabBarActiveTintColor: COLORS.primary }}>
-      <Tab.Screen name="Dashboard" component={HomeScreen} />
-      {/* Add Worker Mgmt later */}
+      <Tab.Screen name="Dashboard" component={FMDashboardScreen} />
+      <Tab.Screen name="Workers" component={WorkersScreen} />
     </Tab.Navigator>
   );
 }

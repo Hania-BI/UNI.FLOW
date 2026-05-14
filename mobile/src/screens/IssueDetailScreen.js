@@ -11,6 +11,9 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  FlatList,
+  TouchableOpacity,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -37,6 +40,9 @@ export default function IssueDetailScreen({ route, navigation }) {
   const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [workers, setWorkers] = useState([]);
+  const [loadingWorkers, setLoadingWorkers] = useState(false);
 
   useEffect(() => { loadIssue(); }, [id]);
 
@@ -142,6 +148,34 @@ export default function IssueDetailScreen({ route, navigation }) {
       Alert.alert('Upload failed', err.message);
     } finally {
       setUploadingPhoto(false);
+    }
+  }
+
+  async function openAssignModal() {
+    setShowAssignModal(true);
+    try {
+      setLoadingWorkers(true);
+      const data = await apiGet('/manager/workers');
+      setWorkers(data.workers.filter((w) => w.status === 'active'));
+    } catch (err) {
+      Alert.alert('Error', err.message);
+      setShowAssignModal(false);
+    } finally {
+      setLoadingWorkers(false);
+    }
+  }
+
+  async function handleAssign(workerId) {
+    try {
+      setShowAssignModal(false);
+      setUpdating(true);
+      await apiPut(`/issues/${id}/assign`, { workerId });
+      await refresh();
+      Alert.alert('Assigned', 'Worker has been assigned to this issue.');
+    } catch (err) {
+      Alert.alert('Assignment failed', err.message);
+    } finally {
+      setUpdating(false);
     }
   }
 
@@ -259,6 +293,19 @@ export default function IssueDetailScreen({ route, navigation }) {
             </Pressable>
           )}
 
+          {/* FM: assign / reassign worker */}
+          {isFM && issue.status !== 'closed' && (
+            <Pressable
+              onPress={openAssignModal}
+              disabled={updating}
+              style={[styles.outlineBtn, updating && styles.disabled]}
+            >
+              <Text style={styles.outlineBtnText}>
+                {issue.worker ? 'Reassign Worker' : 'Assign Worker'}
+              </Text>
+            </Pressable>
+          )}
+
           {/* Silent refresh indicator */}
           {silentLoading && (
             <ActivityIndicator
@@ -315,6 +362,52 @@ export default function IssueDetailScreen({ route, navigation }) {
 
         </View>
       </ScrollView>
+      {/* Assign Worker Modal */}
+      <Modal
+        visible={showAssignModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAssignModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Worker</Text>
+              <Pressable onPress={() => setShowAssignModal(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </Pressable>
+            </View>
+
+            {loadingWorkers ? (
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ margin: SPACING.xl }} />
+            ) : workers.length === 0 ? (
+              <Text style={styles.modalEmpty}>No active workers available.</Text>
+            ) : (
+              <FlatList
+                data={workers}
+                keyExtractor={(w) => w.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.workerRow,
+                      issue.worker?.id === item.id && styles.workerRowActive,
+                    ]}
+                    onPress={() => handleAssign(item.id)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.workerName}>{item.full_name}</Text>
+                      <Text style={styles.workerEmail}>{item.email}</Text>
+                    </View>
+                    {issue.worker?.id === item.id && (
+                      <Text style={styles.workerCurrentBadge}>Current</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -392,4 +485,37 @@ const styles = StyleSheet.create({
     paddingVertical: 13, borderRadius: RADIUS.md, minWidth: 60, alignItems: 'center',
   },
   commentSubmitText: { color: '#fff', fontWeight: '700' },
+
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    maxHeight: '70%', paddingBottom: SPACING.xl,
+  },
+  modalHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: SPACING.lg, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: COLORS.text },
+  modalClose: { fontSize: 18, color: COLORS.textSecondary, paddingHorizontal: SPACING.sm },
+  modalEmpty: {
+    textAlign: 'center', color: COLORS.textSecondary,
+    padding: SPACING.xl, fontStyle: 'italic',
+  },
+  workerRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  workerRowActive: { backgroundColor: COLORS.primary + '15' },
+  workerName: { fontSize: 15, fontWeight: '600', color: COLORS.text },
+  workerEmail: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  workerCurrentBadge: {
+    fontSize: 11, color: COLORS.primary, fontWeight: '700',
+    borderWidth: 1, borderColor: COLORS.primary,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full,
+  },
 });
