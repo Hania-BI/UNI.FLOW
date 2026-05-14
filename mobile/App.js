@@ -14,6 +14,7 @@ import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import CreateIssueScreen from './src/screens/CreateIssueScreen';
 import IssueDetailScreen from './src/screens/IssueDetailScreen';
+import AssignedIssuesScreen from './src/screens/AssignedIssuesScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -39,7 +40,7 @@ function FMTabs() {
 function WorkerTabs() {
   return (
     <Tab.Navigator screenOptions={{ tabBarActiveTintColor: COLORS.primary }}>
-      <Tab.Screen name="My Tasks" component={HomeScreen} />
+      <Tab.Screen name="My Tasks" component={AssignedIssuesScreen} />
     </Tab.Navigator>
   );
 }

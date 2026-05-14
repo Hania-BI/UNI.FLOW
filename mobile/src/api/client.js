@@ -89,12 +89,12 @@ export async function apiDelete(path) {
   return request(path, { method: 'DELETE', headers });
 }
 
-export async function apiUploadIssue(formData) {
-  const url = `${API_URL}/issues`;
+export async function apiUpload(path, formData) {
+  const url = `${API_URL}${path}`;
   console.log('[API] POST (upload)', url);
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30_000); // longer for file uploads
+  const timer = setTimeout(() => controller.abort(), 30_000);
 
   try {
     const headers = await authHeader();
@@ -113,4 +113,8 @@ export async function apiUploadIssue(formData) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+export function apiUploadIssue(formData) {
+  return apiUpload('/issues', formData);
 }

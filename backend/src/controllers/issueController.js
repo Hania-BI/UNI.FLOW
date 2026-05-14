@@ -230,6 +230,7 @@ export const updateStatus = asyncHandler(async (req, res) => {
 
   const patch = { status };
   if (status === 'resolved') patch.resolved_at = new Date().toISOString();
+  if (status === 'closed') patch.closed_at = new Date().toISOString();
 
   const { data: updated, error } = await supabaseAdmin
     .from('issues')

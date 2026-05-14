@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut } from './client';
+import { apiGet, apiPost, apiPut, apiUpload } from './client';
 
 export async function createIssue(formData) {
   return apiPost('/issues', formData, {
@@ -37,7 +37,10 @@ export async function addComment(id, body) {
 
 // POST /api/issues/:id/photo (completion)
 export async function uploadCompletionPhoto(id, formData) {
-  return apiPost(`/issues/${id}/photo`, formData, {
-    isFormData: true,
-  });
+  return apiUpload(`/issues/${id}/photo`, formData);
+}
+
+// GET /api/issues/assigned (worker)
+export async function getAssignedIssues() {
+  return apiGet('/issues/assigned');
 }
