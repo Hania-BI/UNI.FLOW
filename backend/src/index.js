@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { networkInterfaces } from 'os';
 
 import authRoutes from './routes/auth.js';
 import issueRoutes from './routes/issues.js';
@@ -42,7 +43,18 @@ app.use((err, _req, res, _next) => {
   });
 });
 
+function localIP() {
+  for (const ifaces of Object.values(networkInterfaces())) {
+    for (const iface of ifaces) {
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+    }
+  }
+  return 'localhost';
+}
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
+  const ip = localIP();
   console.log(`UNIFLOW API listening on http://localhost:${PORT}`);
+  console.log(`For mobile devices on the same Wi-Fi set EXPO_PUBLIC_API_URL=http://${ip}:${PORT}/api`);
 });

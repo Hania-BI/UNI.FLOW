@@ -24,15 +24,20 @@ export function AuthProvider({ children }) {
   }, []);
 
   async function login(email, password) {
+    console.log('[Auth] login attempt:', email);
     const data = await apiPost('/auth/login', { email, password });
+    console.log('[Auth] login success, role:', data.user?.role);
     await persistSession(data);
   }
 
   async function register(name, email, password, role) {
+    console.log('[Auth] register attempt:', email, role);
     await apiPost('/auth/register', { name, email, password, role });
+    console.log('[Auth] register success');
   }
 
   async function logout() {
+    console.log('[Auth] logout');
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await SecureStore.deleteItemAsync(USER_KEY);
     setUser(null);
@@ -40,6 +45,11 @@ export function AuthProvider({ children }) {
   }
 
   async function persistSession({ user, token }) {
+    if (!token || !user) {
+      console.error('[Auth] persistSession received incomplete data:', { token: !!token, user: !!user });
+      throw new Error('Server returned an incomplete session. Please try again.');
+    }
+    console.log('[Auth] persisting session for user:', user.id, user.role);
     await SecureStore.setItemAsync(TOKEN_KEY, token);
     await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
     setToken(token);

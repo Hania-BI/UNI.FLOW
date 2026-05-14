@@ -27,17 +27,29 @@ export default function CreateIssueScreen({ navigation }) {
   const [submitting, setSubmitting] = useState(false);
 
   async function pickPhoto() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'We need gallery access to pick a photo.');
-      return;
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission needed',
+          'Go to Settings → CampusCare → Photos and allow access.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      Alert.alert('Photo error', err.message);
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-      allowsEditing: true,
-    });
-    if (!result.canceled) setImageUri(result.assets[0].uri);
   }
 
   async function handleSubmit() {
@@ -49,7 +61,7 @@ export default function CreateIssueScreen({ navigation }) {
       setSubmitting(true);
       const form = new FormData();
       form.append('description', description);
-      form.append('category', category);
+      form.append('category', category.toLowerCase());
       form.append('building', building);
       form.append('floor', floor);
       form.append('room', room);

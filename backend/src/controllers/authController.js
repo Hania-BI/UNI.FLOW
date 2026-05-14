@@ -56,8 +56,15 @@ export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) throw new HttpError(400, 'email and password are required');
 
+  console.log('[auth] login attempt:', email);
+
   const { data, error } = await supabaseAuth.auth.signInWithPassword({ email, password });
-  if (error) throw new HttpError(401, error.message);
+  if (error) {
+    console.warn('[auth] signInWithPassword failed:', error.message);
+    throw new HttpError(401, error.message);
+  }
+
+  console.log('[auth] supabase auth OK, fetching profile for:', data.user.id);
 
   // Pull the authoritative profile so the mobile app gets the right role.
   const { data: profile, error: profileError } = await supabaseAdmin
@@ -66,8 +73,17 @@ export const login = asyncHandler(async (req, res) => {
     .eq('id', data.user.id)
     .single();
 
-  if (profileError || !profile) throw new HttpError(401, 'User profile not found');
+  if (profileError) {
+    console.error('[auth] profile fetch error:', profileError.message);
+    throw new HttpError(401, 'User profile not found — have you run the DB migration?');
+  }
+  if (!profile) {
+    console.warn('[auth] no profile row for auth user:', data.user.id);
+    throw new HttpError(401, 'User profile not found — have you run the DB migration?');
+  }
   if (profile.status !== 'active') throw new HttpError(403, 'Account is inactive');
+
+  console.log('[auth] login success:', email, profile.role);
 
   res.status(200).json({
     token: data.session.access_token,

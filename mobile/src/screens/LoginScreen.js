@@ -32,8 +32,11 @@ export default function LoginScreen({ navigation }) {
     }
     try {
       setSubmitting(true);
+      console.log('[LoginScreen] submitting login for:', email.trim());
       await login(email.trim(), password);
+      console.log('[LoginScreen] login complete — navigation will update automatically');
     } catch (err) {
+      console.error('[LoginScreen] login error:', err.message);
       Alert.alert('Login failed', err.message);
     } finally {
       setSubmitting(false);

@@ -59,8 +59,8 @@ export default function IssueDetailScreen({ route, navigation }) {
 
   if (!issue) return null;
 
-  const locationText = issue.locations 
-    ? `${issue.locations.building} - Floor ${issue.locations.floor}, Room ${issue.locations.room}`
+  const locationText = issue.location
+    ? `${issue.location.building} - Floor ${issue.location.floor}, Room ${issue.location.room}`
     : 'Location not specified';
 
   return (
@@ -78,9 +78,9 @@ export default function IssueDetailScreen({ route, navigation }) {
         <Text style={styles.description}>{issue.description}</Text>
 
         <View style={styles.meta}>
-          <Text style={styles.metaText}>Reported by: {issue.submitter?.name}</Text>
+          <Text style={styles.metaText}>Reported by: {issue.submitter?.full_name}</Text>
           <Text style={styles.metaText}>Date: {new Date(issue.created_at).toLocaleString()}</Text>
-          {issue.worker && <Text style={styles.metaText}>Assigned to: {issue.worker.name}</Text>}
+          {issue.worker && <Text style={styles.metaText}>Assigned to: {issue.worker.full_name}</Text>}
         </View>
 
         {user.role === 'facility_manager' && issue.status === 'pending' && (

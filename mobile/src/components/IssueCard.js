@@ -10,8 +10,8 @@ export default function IssueCard({ issue, onPress }) {
   };
 
   // The backend now returns nested location data
-  const locationText = issue.locations 
-    ? `${issue.locations.building} - Floor ${issue.locations.floor}, Room ${issue.locations.room}`
+  const locationText = issue.location
+    ? `${issue.location.building} - Floor ${issue.location.floor}, Room ${issue.location.room}`
     : 'Location not specified';
 
   return (
@@ -28,7 +28,7 @@ export default function IssueCard({ issue, onPress }) {
       
       <View style={styles.footer}>
         <Text style={styles.date}>{new Date(issue.created_at).toLocaleDateString()}</Text>
-        {issue.worker && <Text style={styles.worker}>Assigned to: {issue.worker.name}</Text>}
+        {issue.worker && <Text style={styles.worker}>Assigned to: {issue.worker.full_name}</Text>}
       </View>
     </Pressable>
   );
