@@ -118,3 +118,11 @@ export async function apiUpload(path, formData) {
 export function apiUploadIssue(formData) {
   return apiUpload('/issues', formData);
 }
+
+export async function apiPostWithToken(path, body, accessToken) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${accessToken}`,
+  };
+  return request(path, { method: 'POST', headers, body: JSON.stringify(body) });
+}
