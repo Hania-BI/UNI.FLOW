@@ -17,6 +17,7 @@ import IssueDetailScreen from './src/screens/IssueDetailScreen';
 import AssignedIssuesScreen from './src/screens/AssignedIssuesScreen';
 import FMDashboardScreen from './src/screens/FMDashboardScreen';
 import WorkersScreen from './src/screens/WorkersScreen';
+import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -47,14 +48,34 @@ function WorkerTabs() {
   );
 }
 
+function AdminTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        tabBarActiveTintColor: '#6366F1',
+        tabBarStyle: { backgroundColor: '#1A1A22', borderTopColor: '#2E2E3E' },
+        tabBarLabelStyle: { color: '#8888A8' },
+        headerShown: false,
+      }}
+    >
+      <Tab.Screen
+        name="Users"
+        component={AdminDashboardScreen}
+        options={{ tabBarLabel: 'Users', title: 'User Management' }}
+      />
+    </Tab.Navigator>
+  );
+}
+
 function AppNavigator() {
   const { user } = useAuth();
 
   if (user.role === 'community_member') return <CMTabs />;
   if (user.role === 'facility_manager') return <FMTabs />;
-  if (user.role === 'worker') return <WorkerTabs />;
-  
-  return <CMTabs />; // Default
+  if (user.role === 'worker')           return <WorkerTabs />;
+  if (user.role === 'admin')            return <AdminTabs />;
+
+  return <CMTabs />;
 }
 
 function RootNavigator() {

@@ -39,6 +39,9 @@ export const listUsers = asyncHandler(async (req, res) => {
 });
 
 export const setUserStatus = asyncHandler(async (req, res) => {
+  if (req.params.id === req.user.id) {
+    throw new HttpError(403, 'You cannot deactivate your own admin account.');
+  }
   const { status } = req.body;
   if (!['active', 'inactive'].includes(status)) {
     throw new HttpError(400, 'status must be active or inactive');
