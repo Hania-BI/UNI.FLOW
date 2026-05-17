@@ -85,63 +85,76 @@ Community members report maintenance issues through a mobile app. Facility manag
 ---
 
 ## Project Structure
-
-```
 UNI.FLOW/
-├── backend/                      # Node.js + Express REST API
-│   ├── src/
-│   │   ├── index.js              # Entry point — mounts all routes, starts on port 3000
-│   │   ├── config/
-│   │   │   └── supabase.js       # Two Supabase clients: admin (service key) + auth (anon key)
-│   │   ├── controllers/
-│   │   │   ├── authController.js # register, login, logout, me, forgotPassword, resetPassword
-│   │   │   ├── issueController.js# create, list, get, update, assign, close, delete, comment, photo
-│   │   │   └── userController.js # list workers/users, set worker/user status
-│   │   ├── middleware/
-│   │   │   ├── requireAuth.js    # Verifies JWT, loads user role and status
-│   │   │   └── rbacMiddleware.js # Checks user role against allowed roles list
-│   │   └── routes/
-│   │       ├── auth.js           # /api/auth/*
-│   │       ├── issues.js         # /api/issues/*
-│   │       ├── manager.js        # /api/manager/*
-│   │       └── admin.js          # /api/admin/*
+├── README.md
+├── package-lock.json
+│
+├── backend/
+│   ├── .env
+│   ├── .gitignore
+│   ├── package.json
+│   ├── package-lock.json
 │   ├── migrations/
-│   │   ├── 001_init.sql          # Full database schema (tables + enums)
-│   │   └── 002_seed.sql          # Optional sample data
-│   └── .env                      # Backend environment variables (you create this)
+│   │   ├── 001_init.sql
+│   │   └── 002_seed.sql
+│   └── src/
+│       ├── index.js
+│       ├── config/
+│       │   └── supabase.js
+│       ├── controllers/
+│       │   ├── authController.js
+│       │   ├── issueController.js
+│       │   └── userController.js
+│       ├── lib/
+│       │   └── asyncHandler.js
+│       ├── middleware/
+│       │   ├── rbacMiddleware.js
+│       │   └── requireAuth.js
+│       └── routes/
+│           ├── admin.js
+│           ├── auth.js
+│           ├── issues.js
+│           └── manager.js
 │
-├── mobile/                       # React Native + Expo mobile app
-│   ├── App.js                    # Navigation root + role-based tab routing
-│   ├── app.json                  # Expo config (app name: CampusCare, slug: campuscare)
-│   ├── src/
-│   │   ├── api/
-│   │   │   └── client.js         # Fetch wrapper — reads EXPO_PUBLIC_API_URL
-│   │   ├── auth/
-│   │   │   └── AuthContext.js    # Auth state, JWT storage via expo-secure-store
-│   │   ├── components/
-│   │   │   └── IssueCard.js      # Shared issue card component
-│   │   ├── screens/              # All screens in a flat directory
-│   │   │   ├── SplashScreen.js
-│   │   │   ├── LoginScreen.js
-│   │   │   ├── SignupScreen.js
-│   │   │   ├── ForgotPasswordScreen.js
-│   │   │   ├── OTPVerificationScreen.js
-│   │   │   ├── ResetPasswordScreen.js
-│   │   │   ├── HomeScreen.js           # Community member — My Issues
-│   │   │   ├── CreateIssueScreen.js    # Community member — Report Issue
-│   │   │   ├── IssueDetailScreen.js    # Shared — issue details (role-aware)
-│   │   │   ├── FMDashboardScreen.js    # Facility manager — all issues
-│   │   │   ├── WorkersScreen.js        # Facility manager — worker management
-│   │   │   ├── AssignedIssuesScreen.js # Worker — assigned tasks
-│   │   │   └── AdminDashboardScreen.js # Admin — user management
-│   │   └── theme.js                    # Shared design tokens (colors, spacing, radius)
-│   └── .env                            # Mobile environment variables (you create this)
+├── mobile/
+│   ├── .env
+│   ├── .gitignore
+│   ├── App.js
+│   ├── app.json
+│   ├── babel.config.js
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── .expo/
+│   │   ├── README.md
+│   │   └── devices.json
+│   └── src/
+│       ├── theme.js
+│       ├── api/
+│       │   ├── client.js
+│       │   └── issueApi.js
+│       ├── auth/
+│       │   └── AuthContext.js
+│       ├── components/
+│       │   └── IssueCard.js
+│       └── screens/
+│           ├── AdminDashboardScreen.js
+│           ├── AssignedIssuesScreen.js
+│           ├── CreateIssueScreen.js
+│           ├── FMDashboardScreen.js
+│           ├── ForgotPasswordScreen.js
+│           ├── HomeScreen.js
+│           ├── IssueDetailScreen.js
+│           ├── LoginScreen.js
+│           ├── OTPVerificationScreen.js
+│           ├── ResetPasswordScreen.js
+│           ├── SignupScreen.js
+│           ├── SplashScreen.js
+│           └── WorkersScreen.js
 │
-└── docs/                         # Project documentation
+└── docs/
     ├── IMPLEMENTATION_PLAN.md
     ├── SRS.docx
     └── final-milestone_campusCare.pdf
-```
 
 ---
 
