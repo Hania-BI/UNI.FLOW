@@ -29,7 +29,13 @@ const Tab   = createBottomTabNavigator();
 
 function CMTabs() {
   return (
-    <Tab.Navigator screenOptions={{ tabBarActiveTintColor: COLORS.primary }}>
+    <Tab.Navigator
+      screenOptions={{
+        tabBarActiveTintColor: '#4F46E5',
+        tabBarInactiveTintColor: '#94A3B8',
+        tabBarStyle: { borderTopColor: '#E2E8F0' },
+      }}
+    >
       <Tab.Screen name="My Issues"    component={HomeScreen} />
       <Tab.Screen name="Report Issue" component={CreateIssueScreen} />
     </Tab.Navigator>
@@ -38,7 +44,13 @@ function CMTabs() {
 
 function FMTabs() {
   return (
-    <Tab.Navigator screenOptions={{ tabBarActiveTintColor: COLORS.primary }}>
+    <Tab.Navigator
+      screenOptions={{
+        tabBarActiveTintColor: '#4F46E5',
+        tabBarInactiveTintColor: '#94A3B8',
+        tabBarStyle: { borderTopColor: '#E2E8F0' },
+      }}
+    >
       <Tab.Screen name="Dashboard" component={FMDashboardScreen} />
       <Tab.Screen name="Workers"   component={WorkersScreen} />
     </Tab.Navigator>
@@ -47,7 +59,13 @@ function FMTabs() {
 
 function WorkerTabs() {
   return (
-    <Tab.Navigator screenOptions={{ tabBarActiveTintColor: COLORS.primary }}>
+    <Tab.Navigator
+      screenOptions={{
+        tabBarActiveTintColor: '#4F46E5',
+        tabBarInactiveTintColor: '#94A3B8',
+        tabBarStyle: { borderTopColor: '#E2E8F0' },
+      }}
+    >
       <Tab.Screen name="My Tasks" component={AssignedIssuesScreen} />
     </Tab.Navigator>
   );

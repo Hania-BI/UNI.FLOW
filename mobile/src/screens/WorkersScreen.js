@@ -14,17 +14,38 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { apiGet, apiPut } from '../api/client';
-import { COLORS, SPACING, RADIUS } from '../theme';
+import { SPACING } from '../theme';
 
-const AVATAR_COLORS = [
-  '#0066CC', '#9C27B0', '#E91E63', '#00897B', '#F4511E', '#3949AB',
-];
+// Design tokens — unified with auth screen palette
+const P = {
+  primary: '#4F46E5',
+  primaryDark: '#3730A3',
+  primaryLight: '#EEF2FF',
+  bg: '#F8F9FF',
+  surface: '#FFFFFF',
+  text: '#0F172A',
+  textSub: '#475569',
+  textMuted: '#94A3B8',
+  border: '#E2E8F0',
+  error: '#EF4444',
+  errorLight: '#FEF2F2',
+  success: '#10B981',
+};
+
+// Avatars use purple-adjacent hues
+const AVATAR_COLORS = ['#4F46E5', '#7C3AED', '#EC4899', '#10B981', '#F59E0B', '#6366F1'];
 
 function getAvatarColor(id = '') {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
+
+const FILTER_TABS = (stats) => [
+  { key: 'all',      label: 'All',      count: stats.total,    activeColor: P.primary },
+  { key: 'active',   label: 'Active',   count: stats.active,   activeColor: P.success },
+  { key: 'inactive', label: 'Inactive', count: stats.inactive, activeColor: '#6B7280' },
+];
 
 export default function WorkersScreen() {
   const insets = useSafeAreaInsets();
@@ -94,118 +115,151 @@ export default function WorkersScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+      <View style={[styles.center, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={P.primary} />
+        <Text style={styles.loadingText}>Loading workers…</Text>
       </View>
     );
   }
 
+  const tabs = FILTER_TABS(stats);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
+      {/* ─── HEADER ─── */}
       <View style={styles.header}>
         <View>
+          <Text style={styles.headerEyebrow}>Team Overview</Text>
           <Text style={styles.headerTitle}>Workers</Text>
-          <Text style={styles.headerSubtitle}>{stats.total} registered</Text>
+        </View>
+        <View style={styles.headerBadge}>
+          <Text style={styles.headerBadgeText}>{stats.total} registered</Text>
         </View>
       </View>
 
-      {/* Stats */}
+      {/* ─── STATS ─── */}
       <View style={styles.statsRow}>
-        <View style={[styles.statCard, { borderTopColor: COLORS.primary }]}>
-          <Text style={[styles.statValue, { color: COLORS.primary }]}>{stats.total}</Text>
-          <Text style={styles.statLabel}>Total</Text>
-        </View>
-        <View style={[styles.statCard, { borderTopColor: COLORS.success }]}>
-          <Text style={[styles.statValue, { color: COLORS.success }]}>{stats.active}</Text>
-          <Text style={styles.statLabel}>Active</Text>
-        </View>
-        <View style={[styles.statCard, { borderTopColor: COLORS.textSecondary }]}>
-          <Text style={[styles.statValue, { color: COLORS.textSecondary }]}>{stats.inactive}</Text>
-          <Text style={styles.statLabel}>Inactive</Text>
-        </View>
-      </View>
-
-      {/* Filter tabs */}
-      <View style={styles.filterRow}>
         {[
-          { key: 'all', label: `All (${stats.total})` },
-          { key: 'active', label: `Active (${stats.active})` },
-          { key: 'inactive', label: `Inactive (${stats.inactive})` },
-        ].map((tab) => (
-          <Pressable
-            key={tab.key}
-            onPress={() => setFilter(tab.key)}
-            style={[styles.filterTab, filter === tab.key && styles.filterTabActive]}
-          >
-            <Text style={[styles.filterTabText, filter === tab.key && styles.filterTabTextActive]}>
-              {tab.label}
-            </Text>
-          </Pressable>
+          { label: 'Total',    value: stats.total,    color: P.primary,  icon: '👥' },
+          { label: 'Active',   value: stats.active,   color: P.success,  icon: '✅' },
+          { label: 'Inactive', value: stats.inactive, color: '#6B7280',  icon: '⏸' },
+        ].map(({ label, value, color, icon }) => (
+          <View key={label} style={[styles.statCard, { borderTopColor: color }]}>
+            <Text style={styles.statCardIcon}>{icon}</Text>
+            <Text style={[styles.statCardValue, { color }]}>{value}</Text>
+            <Text style={styles.statCardLabel}>{label}</Text>
+          </View>
         ))}
       </View>
 
+      {/* ─── FILTER TABS ─── */}
+      <View style={styles.tabRow}>
+        {tabs.map((tab) => {
+          const active = filter === tab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              onPress={() => setFilter(tab.key)}
+              style={[
+                styles.tab,
+                active && { backgroundColor: tab.activeColor, borderColor: tab.activeColor },
+              ]}
+            >
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab.label}</Text>
+              <View style={[styles.tabBadge, active && styles.tabBadgeActive]}>
+                <Text style={[styles.tabBadgeText, active && styles.tabBadgeTextActive]}>
+                  {tab.count}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* ─── ERROR ─── */}
       {error && (
         <View style={styles.errorBanner}>
+          <Text style={styles.errorIcon}>⚠️</Text>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={load}>
+          <Pressable onPress={load} style={styles.retryBtn}>
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
       )}
 
+      {/* ─── LIST ─── */}
       <FlatList
         data={filtered}
         keyExtractor={(w) => w.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={P.primary} />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>👷</Text>
+            <View style={styles.emptyIconWrap}>
+              <Text style={styles.emptyIcon}>👷</Text>
+            </View>
             <Text style={styles.emptyTitle}>No workers found</Text>
             <Text style={styles.emptySubtitle}>
-              {filter !== 'all' ? 'Try a different filter.' : 'Workers who register will appear here.'}
+              {filter !== 'all'
+                ? 'No workers match this filter.'
+                : 'Workers who register will appear here.'}
             </Text>
           </View>
         }
         renderItem={({ item }) => {
           const avatarColor = getAvatarColor(item.id);
           const isActive = item.status === 'active';
+          const joinDate = new Date(item.created_at).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+          });
           return (
             <View style={[styles.card, !isActive && styles.cardInactive]}>
-              <View style={[styles.avatar, { backgroundColor: isActive ? avatarColor : COLORS.border }]}>
+              {/* Avatar */}
+              <View style={[styles.avatar, { backgroundColor: isActive ? avatarColor : '#CBD5E1' }]}>
                 <Text style={styles.avatarText}>
                   {item.full_name?.charAt(0).toUpperCase() ?? '?'}
                 </Text>
               </View>
 
+              {/* Info */}
               <View style={styles.cardBody}>
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.name}>{item.full_name}</Text>
-                  <View style={[styles.statusDot, { backgroundColor: isActive ? COLORS.success : COLORS.border }]} />
+                <View style={styles.nameRow}>
+                  <Text style={styles.name} numberOfLines={1}>{item.full_name}</Text>
+                  <View style={[
+                    styles.statusPill,
+                    { backgroundColor: isActive ? '#D1FAE5' : '#F3F4F6' },
+                  ]}>
+                    <View style={[
+                      styles.statusDot,
+                      { backgroundColor: isActive ? P.success : '#9CA3AF' },
+                    ]} />
+                    <Text style={[
+                      styles.statusPillText,
+                      { color: isActive ? '#065F46' : '#6B7280' },
+                    ]}>
+                      {isActive ? 'Active' : 'Inactive'}
+                    </Text>
+                  </View>
                 </View>
-                <Text style={styles.email}>{item.email}</Text>
-                <Text style={styles.since}>
-                  Member since {new Date(item.created_at).toLocaleDateString()}
-                </Text>
+                <Text style={styles.email} numberOfLines={1}>{item.email}</Text>
+                <Text style={styles.joinDate}>Joined {joinDate}</Text>
               </View>
 
+              {/* Toggle */}
               <View style={styles.toggleWrap}>
                 {togglingId === item.id ? (
-                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <ActivityIndicator size="small" color={P.primary} />
                 ) : (
                   <Switch
                     value={isActive}
                     onValueChange={() => toggleStatus(item)}
-                    trackColor={{ false: '#ddd', true: COLORS.primary + '88' }}
-                    thumbColor={isActive ? COLORS.primary : '#aaa'}
+                    trackColor={{ false: '#E2E8F0', true: P.primaryLight }}
+                    thumbColor={isActive ? P.primary : '#94A3B8'}
+                    ios_backgroundColor="#E2E8F0"
                   />
                 )}
-                <Text style={[styles.toggleLabel, { color: isActive ? COLORS.success : COLORS.textSecondary }]}>
-                  {isActive ? 'Active' : 'Inactive'}
-                </Text>
               </View>
             </View>
           );
@@ -216,116 +270,178 @@ export default function WorkersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: P.bg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: P.bg, gap: 12 },
+  loadingText: { fontSize: 14, color: P.textMuted, fontWeight: '500' },
 
+  /* ── HEADER ── */
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.surface,
+    backgroundColor: P.surface,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: P.border,
+    elevation: 2,
+    shadowColor: '#1E1B4B',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.text },
-  headerSubtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
+  headerEyebrow: { fontSize: 11, color: P.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: P.text, letterSpacing: -0.4 },
+  headerBadge: {
+    backgroundColor: P.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  headerBadgeText: { fontSize: 12, color: P.primary, fontWeight: '700' },
 
+  /* ── STATS ── */
   statsRow: {
     flexDirection: 'row',
-    gap: SPACING.sm,
-    padding: SPACING.lg,
-    paddingBottom: SPACING.sm,
+    gap: 10,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.md,
   },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md,
-    padding: SPACING.sm,
+    backgroundColor: P.surface,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
     alignItems: 'center',
     borderTopWidth: 3,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    borderColor: P.border,
+    elevation: 2,
+    shadowColor: '#1E1B4B',
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
     shadowOffset: { width: 0, height: 2 },
   },
-  statValue: { fontSize: 22, fontWeight: 'bold' },
-  statLabel: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2, fontWeight: '500' },
+  statCardIcon: { fontSize: 18, marginBottom: 5 },
+  statCardValue: { fontSize: 22, fontWeight: '800', marginBottom: 2 },
+  statCardLabel: {
+    fontSize: 10,
+    color: P.textMuted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
 
-  filterRow: {
+  /* ── TABS ── */
+  tabRow: {
     flexDirection: 'row',
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.sm,
-    gap: SPACING.sm,
+    gap: 8,
   },
-  filterTab: {
+  tab: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: P.border,
+    backgroundColor: P.surface,
   },
-  filterTabActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+  tabText: { fontSize: 12, fontWeight: '700', color: P.textSub },
+  tabTextActive: { color: '#fff' },
+  tabBadge: {
+    backgroundColor: P.border,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
   },
-  filterTabText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
-  filterTabTextActive: { color: '#fff' },
+  tabBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
+  tabBadgeText: { fontSize: 10, fontWeight: '800', color: P.textSub },
+  tabBadgeTextActive: { color: '#fff' },
 
+  /* ── ERROR ── */
   errorBanner: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFEBEE',
+    alignItems: 'center',
+    backgroundColor: P.errorLight,
+    borderRadius: 12,
     padding: SPACING.md,
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.sm,
-    borderRadius: RADIUS.md,
+    gap: SPACING.sm,
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
-  errorText: { color: COLORS.error, flex: 1, marginRight: SPACING.sm },
-  retryText: { color: COLORS.primary, fontWeight: '600' },
+  errorIcon: { fontSize: 15 },
+  errorText: { color: P.error, flex: 1, fontSize: 13, fontWeight: '500' },
+  retryBtn: { backgroundColor: P.error, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  retryText: { color: '#fff', fontWeight: '700', fontSize: 12 },
 
-  listContent: { padding: SPACING.lg, paddingTop: SPACING.sm },
+  /* ── LIST ── */
+  listContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: 100 },
 
-  empty: { alignItems: 'center', marginTop: 60 },
-  emptyIcon: { fontSize: 48, marginBottom: SPACING.md },
-  emptyTitle: { fontSize: 18, fontWeight: '600', marginBottom: SPACING.xs },
-  emptySubtitle: { color: COLORS.textSecondary, textAlign: 'center' },
+  /* ── EMPTY ── */
+  empty: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
+  emptyIconWrap: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: P.primaryLight,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: SPACING.md,
+  },
+  emptyIcon: { fontSize: 34 },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: P.text, marginBottom: 8, textAlign: 'center' },
+  emptySubtitle: { color: P.textMuted, textAlign: 'center', fontSize: 14, lineHeight: 20 },
 
+  /* ── CARD ── */
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
+    backgroundColor: P.surface,
+    borderRadius: 14,
     padding: SPACING.md,
-    marginBottom: SPACING.sm,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: P.border,
     gap: SPACING.md,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
+    shadowColor: '#1E1B4B',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
-  cardInactive: { opacity: 0.65 },
+  cardInactive: { opacity: 0.6 },
 
   avatar: {
-    width: 48, height: 48, borderRadius: 24,
+    width: 50, height: 50, borderRadius: 25,
     justifyContent: 'center', alignItems: 'center',
     flexShrink: 0,
   },
-  avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 20 },
+  avatarText: { color: '#fff', fontWeight: '800', fontSize: 20 },
 
-  cardBody: { flex: 1 },
-  cardTopRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, marginBottom: 3 },
-  name: { fontSize: 15, fontWeight: '700', color: COLORS.text, flex: 1 },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  email: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 3 },
-  since: { fontSize: 11, color: COLORS.border, fontWeight: '500' },
+  cardBody: { flex: 1, minWidth: 0 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  name: { fontSize: 15, fontWeight: '700', color: P.text, flex: 1 },
 
-  toggleWrap: { alignItems: 'center', gap: 4 },
-  toggleLabel: { fontSize: 10, fontWeight: '700' },
+  statusPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
+  },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusPillText: { fontSize: 10, fontWeight: '700' },
+
+  email: { fontSize: 12, color: P.textSub, marginBottom: 4, fontWeight: '500' },
+  joinDate: { fontSize: 11, color: P.textMuted, fontWeight: '500' },
+
+  toggleWrap: { alignItems: 'center', flexShrink: 0 },
 });
