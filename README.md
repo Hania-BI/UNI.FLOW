@@ -85,6 +85,8 @@ Community members report maintenance issues through a mobile app. Facility manag
 ---
 
 ## Project Structure
+
+```
 UNI.FLOW/
 ├── README.md
 ├── package-lock.json
@@ -155,6 +157,7 @@ UNI.FLOW/
     ├── IMPLEMENTATION_PLAN.md
     ├── SRS.docx
     └── final-milestone_campusCare.pdf
+```
 
 ---
 
