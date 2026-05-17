@@ -383,14 +383,5 @@ No other external services are required. Image uploads are routed through the ba
 **"Invalid login credentials" after registering**
 - Go to Supabase → **Authentication → Settings → Email** and confirm **Enable email confirmations** is turned **OFF**.
 
-**Password reset OTP email not arriving**
-- Check your spam / junk folder.
-- Supabase's free tier rate-limits outgoing emails. Wait a few minutes between attempts if testing repeatedly.
-- Confirm the email address entered matches the address used during registration.
-
-**Issue photos not loading**
-- Confirm the Supabase Storage bucket is named exactly `issue-photos` (no spaces, lowercase).
-- Confirm `SUPABASE_SERVICE_KEY` in `backend/.env` is the `service_role` key, not the anon key.
-
 **Role does not change after editing the database**
 - The role is read fresh at login. Log out of the app and log back in after updating the `role` column in Supabase.
